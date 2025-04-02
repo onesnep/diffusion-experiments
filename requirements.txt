@@ -1,0 +1,13 @@
+# Core ML Framework
+torch
+torchvision
+
+# Data Handling
+datasets
+# PyYAML
+
+# Utilities
+matplotlib
+numpy
+Pillow
+tqdm
