@@ -1,8 +1,8 @@
 # Diffusion Experiment Refactoring TODO
 
 ## Setup & Configuration
-- [ ] Create `requirements.txt` with all dependencies (torch, torchvision, datasets, tqdm, Pillow, etc.)
-- [ ] Create `.gitignore` file (add venv, __pycache__, runs/, etc.)
+- [x] Create `requirements.txt` with all dependencies (torch, torchvision, datasets, tqdm, Pillow, etc.)
+- [x] Create `.gitignore` file (add venv, __pycache__, runs/, etc.)
 - [ ] Implement configuration handling in `train.py`:
     - [ ] Option A: Use `argparse` for command-line arguments (LR, epochs, paths, batch size, T, run_id etc.)
     - [ ] Option B: Create `configs/base_config.yaml` and use `argparse` + `yaml` or `hydra` to load it.
