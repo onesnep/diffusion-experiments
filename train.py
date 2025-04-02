@@ -45,23 +45,21 @@ class Trainer:
 
     def _initialize_optimizer(self):
         """Init AdamW based on config (pass self.model.parameters())"""
-        # 1. Define the mapping from names to optimizer classes
+        # Define the mapping from names to optimizer classes
         optimizer_map = {
             'AdamW': optim.AdamW,
             'Adam': optim.Adam,
             'SGD': optim.SGD,
         }
         
-        # 2. Get the desired optimizer name from config
         optimizer_name = self.config.optimizer_name
-
-        # 3. Look up the optimizer class
+        
         optimizer_class = optimizer_map.get(optimizer_name)
         if optimizer_class is None:
             raise ValueError(f"Unsupported optimizer specified in config: {optimizer_name}. "
                              f"Available options are: {list(optimizer_map.keys())}")
 
-        # 4. Get optimizer-specific parameters from config
+        # Get optimizer-specific parameters from config
         # Assumes config has a dictionary like 'optimizer_params'
         try:
             optimizer_kwargs = dict(self.config.optimizer_params) # Create a mutable copy
@@ -71,10 +69,8 @@ class Trainer:
         # Ensure 'lr' is present, as it's fundamental (optional check)
         if 'lr' not in optimizer_kwargs:
              print("Warning: 'lr' (learning rate) not found in config.optimizer_params. Optimizer might use default.")
-             # Or raise ValueError("Optimizer 'lr' must be specified in config.optimizer_params")
 
-
-        # 5. Instantiate the optimizer
+        # Instantiate the optimizer
         try:
             optimizer = optimizer_class(
                 self.model.parameters(),
@@ -82,7 +78,6 @@ class Trainer:
             )
             print(f"Initialized {optimizer_name} optimizer with params: {optimizer_kwargs}")
         except TypeError as e:
-            # Catch errors if config params don't match optimizer signature
             raise ValueError(f"Error initializing {optimizer_name}. "
                              f"Check if config.optimizer_params {optimizer_kwargs} "
                              f"match the arguments for {optimizer_class.__name__}. Original error: {e}")
@@ -92,76 +87,94 @@ class Trainer:
 
     def _initialize_criterion(self):
         # Init MSELoss
-        pass
+        criterion = nn.MSELoss()
+        return criterion
 
     def _initialize_diffusion_process(self):
-         # Init ForwardDiffusionProcess based on config (timesteps)
-         pass
+        # Init ForwardDiffusionProcess based on config (timesteps)
+        timesteps = self.config.sampler_timesteps
+        fdp = ForwardDiffusionProcess(timesteps).to(device)
 
     def _get_dataloaders(self):
-         # Call get_dataloaders from data module
-         pass
+        if self.config.dataset_name == 'mnist':
+            factory = MNISTLoaderFactory(self.config)
+        elif self.config.dataset_name == 'cifar10':
+            factory = CIFARLoaderFactory(self.config)
+        else:
+            raise ValueError("Unsupported dataset")
 
+        self.train_loader, self.val_loader = factory.get_dataloaders()
+    
     def _generate_fixed_noise(self):
         # Generate fixed noise tensor for sampling visualization
-        pass
+        # Shape: [num_samples, channels, height, width]
+        fixed_initial_noise = torch.randn(
+            self.config.num_samples,
+            self.config.model_in_channels,
+            self.config.sample_image_height,
+            self.config.sample_image_width,
+            device=self.device
+        )
+
+    def train(self):
+        print("Starting Training...")
+        for epoch in range(self.config.training_epochs):
+            self.current_epoch = epoch # Store current epoch if needed by other methods
+            self._train_single_epoch() # Call method to handle one epoch
+            self._validate_single_epoch()
 
     def _train_epoch(self):
+        train_running_loss = 0
+        train_iterator = tqdm(self.train_loader, desc=f"Epoch {epoch+1}/{EPOCHS} [Training]")
+        for idx, batch in enumerate(train_iterator):
+            # Get clean images and move to device
+            x_0 = batch['pixel_values'].to(device)
+            current_batch_size = x_0.shape[0] # Get actual batch size
 
-# Init model, optimizer, diffusion class
-model = UNet3Layer(in_channels=1, out_channels=1, time_projection_dim=512).to(device) # Example time_projection_dim
-model = torch.compile(model)
-optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE)
-criterion = nn.MSELoss()
-fdp = ForwardDiffusionProcess(timesteps=T).to(device)
+            # Sample random timesteps t for the batch
+            t = torch.randint(0, T, (current_batch_size,), device=device).long()
+
+            # Apply diffusion forward process (noising) to get x_t and epsilon
+            x_t, epsilon = self.fdp(x_0, t) # Calls the forward method of fdp
+
+            self.optimizer.zero_grad()
+
+            # Use torch auto mixed precision
+            with torch.autocast(device_type=device, dtype=torch.float16): # Cast ops to FP16/BF16
+
+                # 4. Predict noise using the U-Net model and pad
+                predicted_noise = self.model(x_t, t) # Shape: [B, 1, 24, 24]
+                padded_predicted_noise = pad_output_to_target(predicted_noise, epsilon)
+            
+                # 5. Calculate loss between predicted noise and actual noise
+                loss = criterion(padded_predicted_noise, epsilon)
+
+            # 6. Backpropagation and Optimization
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+
+            # Accumulate loss
+            train_running_loss += loss.item()
+
+            # Update tqdm progress bar description
+            train_iterator.set_postfix(loss=loss.item())
+
+
+        # Calculate average training loss for the epoch
+        train_loss = train_running_loss / len(train_dataloader) # 
+
+    def _validate_epoch(self):
+        pass
+
+    def _generate_sample(self):
+        pass
+
+    def _save_model(self):
+        torch.save(model.state_dict(), f"{self.config.}_e{str(epoch)}.pth")
+        print(f"Model saved to {MODEL_SAVE_PATH}_r_{RUN_NUMBER}_e{str(epoch)}.pth")
 
 # Training loop
-print("Starting Training...")
-for epoch in range(EPOCHS): # Use range directly, tqdm can wrap the iterable
-    model.train()
-    train_running_loss = 0
-    train_iterator = tqdm(train_dataloader, desc=f"Epoch {epoch+1}/{EPOCHS} [Training]")
-    for idx, batch in enumerate(train_iterator):
-        # 1. Get clean images and move to device
-        #    Ensure key matches output of transform_batch
-        x_0 = batch['pixel_values'].to(device)
-        current_batch_size = x_0.shape[0] # Get actual batch size
-
-        # 2. Sample random timesteps t for the batch
-        t = torch.randint(0, T, (current_batch_size,), device=device).long()
-
-        # 3. Apply diffusion forward process (noising) to get x_t and epsilon
-        x_t, epsilon = fdp(x_0, t) # Calls the forward method of fdp
-
-        optimizer.zero_grad()
-
-        # Use torch auto mixed precision
-        with torch.autocast(device_type=device, dtype=torch.float16): # Cast ops to FP16/BF16
-
-            # 4. Predict noise using the U-Net model and pad
-            predicted_noise = model(x_t, t) # Shape: [B, 1, 24, 24]
-            padded_predicted_noise = pad_output_to_target(predicted_noise, epsilon)
-        
-            # 5. Calculate loss between predicted noise and actual noise
-            loss = criterion(padded_predicted_noise, epsilon)
-
-        # 6. Backpropagation and Optimization
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
-
-        # Accumulate loss
-        train_running_loss += loss.item()
-
-        # Update tqdm progress bar description
-        train_iterator.set_postfix(loss=loss.item())
-
-
-    # Calculate average training loss for the epoch
-    train_loss = train_running_loss / len(train_dataloader) # Use len(dataloader) for average
-
-    # Save model at current epoch
-    save_model(model, epoch)
 
     # Generate Samples
     generate_samples(model=model,
