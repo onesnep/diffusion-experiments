@@ -1,5 +1,113 @@
 import torch
 
+from models.unet import UNet3Layer
+from diffusion.schedule import ForwardDiffusionProcess
+from data.mnist import get_dataloaders
+from sampling.ddpm import generate_images # Assuming this name
+#from utils.general_utils import pad_output_to_target
+
+class Trainer:
+    def __init__(self, config): # config could be argparse namespace or dict
+        self.config = config
+        self.device = self._setup_device()
+        self.model = self._initialize_model().to(device)
+        # Use Torch compile if set
+        if self.config.compile_model:
+             self.model = torch.compile(model)        
+        self.optimizer = self._initialize_optimizer()
+        self.criterion = self._initialize_criterion()
+        self.fdp = self._initialize_diffusion_process().to(self.device)
+        self.train_loader, self.val_loader = self._get_dataloaders()
+        self.scaler = torch.cuda.amp.GradScaler(enabled=self.config.use_amp)
+        self.fixed_noise = self._generate_fixed_noise().to(self.device)
+        self.current_epoch = 0
+        # Potentially add LR scheduler, logging setup (W&B, Tensorboard)
+
+    def _setup_device(self):
+        """Determines the appropriate device (GPU or CPU) and returns it."""
+        if torch.cuda.is_available():
+            print("CUDA is available. Using GPU.")
+            device = torch.device('cuda')
+        else:
+            print("CUDA not available. Using CPU.")
+            device = torch.device('cpu')
+        return device
+
+    def _initialize_model(self):
+        """Init UNet3Layer based on config"""
+        model = UNet3Layer(
+            in_channels=self.config.model_in_channels, 
+            out_channels=self.config.model_out_channels, 
+            time_projection_dim=self.config.model_time_proj_dim,
+            num_groups=self.config.model_num_groups
+        )
+        return model
+
+    def _initialize_optimizer(self):
+        """Init AdamW based on config (pass self.model.parameters())"""
+        # 1. Define the mapping from names to optimizer classes
+        optimizer_map = {
+            'AdamW': optim.AdamW,
+            'Adam': optim.Adam,
+            'SGD': optim.SGD,
+        }
+        
+        # 2. Get the desired optimizer name from config
+        optimizer_name = self.config.optimizer_name
+
+        # 3. Look up the optimizer class
+        optimizer_class = optimizer_map.get(optimizer_name)
+        if optimizer_class is None:
+            raise ValueError(f"Unsupported optimizer specified in config: {optimizer_name}. "
+                             f"Available options are: {list(optimizer_map.keys())}")
+
+        # 4. Get optimizer-specific parameters from config
+        # Assumes config has a dictionary like 'optimizer_params'
+        try:
+            optimizer_kwargs = dict(self.config.optimizer_params) # Create a mutable copy
+        except AttributeError:
+            raise ValueError("Configuration object must have an 'optimizer_params' attribute containing a dictionary of optimizer arguments (e.g., lr, weight_decay).")
+
+        # Ensure 'lr' is present, as it's fundamental (optional check)
+        if 'lr' not in optimizer_kwargs:
+             print("Warning: 'lr' (learning rate) not found in config.optimizer_params. Optimizer might use default.")
+             # Or raise ValueError("Optimizer 'lr' must be specified in config.optimizer_params")
+
+
+        # 5. Instantiate the optimizer
+        try:
+            optimizer = optimizer_class(
+                self.model.parameters(),
+                **optimizer_kwargs # Unpack the dictionary as keyword arguments
+            )
+            print(f"Initialized {optimizer_name} optimizer with params: {optimizer_kwargs}")
+        except TypeError as e:
+            # Catch errors if config params don't match optimizer signature
+            raise ValueError(f"Error initializing {optimizer_name}. "
+                             f"Check if config.optimizer_params {optimizer_kwargs} "
+                             f"match the arguments for {optimizer_class.__name__}. Original error: {e}")
+
+        # 6. Return the optimizer instance
+        return optimizer
+
+    def _initialize_criterion(self):
+        # Init MSELoss
+        pass
+
+    def _initialize_diffusion_process(self):
+         # Init ForwardDiffusionProcess based on config (timesteps)
+         pass
+
+    def _get_dataloaders(self):
+         # Call get_dataloaders from data module
+         pass
+
+    def _generate_fixed_noise(self):
+        # Generate fixed noise tensor for sampling visualization
+        pass
+
+    def _train_epoch(self):
+
 # Init model, optimizer, diffusion class
 model = UNet3Layer(in_channels=1, out_channels=1, time_projection_dim=512).to(device) # Example time_projection_dim
 model = torch.compile(model)
