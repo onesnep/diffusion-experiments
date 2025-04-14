@@ -1,7 +1,64 @@
-config:
-  optimizer_name: 'AdamW'
-  optimizer_params:
+# General Run Configuration
+run_name: "mnist_diffusion_v1" # Give your experiment a name
+seed: 42                   # Random seed for reproducibility
+device: "cuda"             # Device to use ("cuda" or "cpu")
+output_dir: "outputs/"       # Base directory for all outputs (runs, checkpoints, samples)
+
+# Data Configuration
+data:
+  dataset_name: "MNIST"      # Currently only MNIST supported
+  data_root: "./data"        # Where to download/find the dataset
+  img_size: 32             # Target image size (MNIST is 28x28, resize if needed)
+  num_workers: 4           # Dataloader workers
+
+# Model (U-Net) Configuration
+model:
+  in_channels: 1           # MNIST is grayscale
+  out_channels: 1          # Predicting noise (same channels as input)
+  base_dim: 64             # Base number of channels in the U-Net
+  dim_mults: [1, 2, 4, 8]  # Channel multipliers for each U-Net level
+  time_emb_dim: 256        # Dimension for time embeddings
+  dropout_rate: 0.1        # Dropout rate in the U-Net blocks
+
+# Diffusion Configuration
+diffusion:
+  timesteps: 1000          # Total number of diffusion steps (T)
+  beta_schedule: "linear"  # Noise schedule ("linear", "cosine", etc.)
+  # Optional: Define schedule params if not using simple names
+  # beta_start: 0.0001
+  # beta_end: 0.02
+
+# Training Configuration
+training:
+  epochs: 100              # Total training epochs
+  batch_size: 128          # Batch size for training
+  optimizer: "Adam"        # Optimizer type (e.g., Adam, AdamW)
+  optimizer_params:        # Optional optimizer params (e.g., betas for Adam)
     lr: 0.0003
     betas: [0.9, 0.999]
     eps: 1.0e-8
     weight_decay: 0.01
+  use_amp: true            # Use Automatic Mixed Precision (FP16/BF16)
+  # --- Checkpointing ---
+  checkpoint_freq: 10      # Save checkpoint every N epochs (0 to disable)
+  # --- Logging ---
+  log_freq: 100            # Print training loss every N steps
+
+# Sampling/Generation Configuration
+sampling:
+  sample_freq: 5           # Generate samples every N epochs (0 to disable)
+  num_samples: 64          # Number of images to generate each time
+  sampling_steps: 1000     # Number of steps for DDPM sampling (can differ from training T)
+  batch_size: 64           # Batch size during sampling (if generating many samples)
+
+# Paths (derived from output_dir and run_name, but can be overridden)
+# These are often constructed dynamically in the code but can be specified here
+# paths:
+#   run_dir: "outputs/mnist_diffusion_v1"
+#   checkpoint_dir: "outputs/mnist_diffusion_v1/checkpoints"
+#   sample_dir: "outputs/mnist_diffusion_v1/samples"
+
+
+config:
+  optimizer_name: 'AdamW'
+ 
