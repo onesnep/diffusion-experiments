@@ -3,14 +3,14 @@
 ## Setup & Configuration
 - [x] Create `requirements.txt` with all dependencies (torch, torchvision, datasets, tqdm, Pillow, etc.)
 - [x] Create `.gitignore` file (add venv, __pycache__, runs/, etc.)
-- [ ] Implement configuration handling in `train.py`:
+- [x] Implement configuration handling in `train.py`:
     - [ ] Option A: Use `argparse` for command-line arguments (LR, epochs, paths, batch size, T, run_id etc.)
-    - [ ] Option B: Create `configs/base_config.yaml` and use `argparse` + `yaml` or `hydra` to load it.
+    - [x] Option B: Create `configs/base_config.yaml` and use `argparse` + `yaml` or `hydra` to load it.
 - [ ] Create output directories (`runs/`, `checkpoints/`, `samples/`) dynamically in `train.py` based on config/args (e.g., using a run ID).
 
 ## Utilities (`utils/`)
-- [ ] Create `utils/__init__.py`
-- [ ] Create `utils/general_utils.py`
+- [x] Create `utils/__init__.py`
+- [x] Create `utils/general_utils.py`
 - [ ] Move `pad_output_to_target` function from notebook/`train.py` draft into `utils/general_utils.py` [cite: diffusion-experiments/train.py]
 - [ ] Refactor `utils/gif.py`:
     - [ ] Rename `create_gif_from_images_notebook` to e.g., `create_progress_gif`.
@@ -18,13 +18,13 @@
     - [ ] Make directory, run_identifier, output_filename arguments configurable (pass via args/config).
 
 ## Data Handling (`data/`)
-- [ ] Create `data/__init__.py`
+- [x] Create `data/__init__.py`
 - [ ] Create `data/mnist_dataset.py`
 - [ ] Move dataset loading (`load_dataset` call), `preprocess` transform definition, and `transform_batch` function from notebook into `data/mnist_dataset.py`.
 - [ ] Create a function like `get_dataloaders(batch_size, num_workers, data_root, ...)` in `data/mnist_dataset.py` that returns train/val dataloaders.
 
 ## Sampling (`sampling/`)
-- [ ] Create `sampling/__init__.py`
+- [x] Create `sampling/__init__.py`
 - [ ] Refactor `sampling/ddpm.py`:
     - [ ] Rename `generate_samples` to e.g., `generate_images` for clarity.
     - [ ] Add necessary imports (`tqdm`, `os`, `plt`, `torchvision`, `pad_output_to_target` from `utils.general_utils`).
@@ -32,12 +32,12 @@
     - [ ] Make `save_dir` and image filename format depend on arguments/config (pass `run_id`, `epoch` etc.). [cite: diffusion-experiments/sampling/ddpm.py]
 
 ## Training Script (`train.py`)
-- [ ] **Structure:** Implement the `Trainer` class structure (or chosen functional structure with a `main` function).
+- [x] **Structure:** Implement the `Trainer` class structure (or chosen functional structure with a `main` function).
 - [ ] **Imports:** Add imports for `torch`, `optim`, `nn`, `tqdm`, `argparse`/`yaml`, and project modules (`UNet3Layer`, `TimeEmbeddingMLP`, `ForwardDiffusionProcess`, `get_dataloaders`, `generate_images`, `pad_output_to_target`). [cite: diffusion-experiments/train.py, diffusion-experiments/model/unet.py, diffusion-experiments/model/time_embedding.py, diffusion-experiments/diffusion/schedule.py, diffusion-experiments/sampling/ddpm.py]
-- [ ] **Initialization:** Move setup logic (device selection, fixed noise generation, AMP scaler init) inside `main` or `Trainer.__init__`, using args/config. [cite: diffusion-experiments/train.py]
-- [ ] **Component Instantiation:** Instantiate `UNet3Layer`, `ForwardDiffusionProcess`, `AdamW`, `MSELoss` using values from args/config. [cite: diffusion-experiments/train.py]
-- [ ] **Data Loading:** Call `get_dataloaders` from `data.mnist_dataset` in `main` or `Trainer.__init__`.
-- [ ] **Training/Validation Loop:** Integrate the core logic from the current `train.py` draft into the chosen structure (`Trainer._train_epoch`, `Trainer._validate_epoch` or helper functions). [cite: diffusion-experiments/train.py]
+- [x] **Initialization:** Move setup logic (device selection, fixed noise generation, AMP scaler init) inside `main` or `Trainer.__init__`, using args/config. [cite: diffusion-experiments/train.py]
+- [x] **Component Instantiation:** Instantiate `UNet3Layer`, `ForwardDiffusionProcess`, `AdamW`, `MSELoss` using values from args/config. [cite: diffusion-experiments/train.py]
+- [x] **Data Loading:** Call `get_dataloaders` from `data.mnist_dataset` in `main` or `Trainer.__init__`.
+- [x] **Training/Validation Loop:** Integrate the core logic from the current `train.py` draft into the chosen structure (`Trainer._train_epoch`, `Trainer._validate_epoch` or helper functions). [cite: diffusion-experiments/train.py]
 - [ ] **Helper Functions:**
     - [ ] Define `save_model` (or `_save_checkpoint` in Trainer) to save model/optimizer state using configurable paths. [cite: diffusion-experiments/train.py]
     - [ ] Ensure `pad_output_to_target` is called correctly (imported from `utils.general_utils`). [cite: diffusion-experiments/train.py]
